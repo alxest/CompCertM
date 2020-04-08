@@ -810,7 +810,7 @@ Section ADQSTEP.
             econs 2; eauto using SimMemOhs.lepriv_proj.
           * instantiate (1:= smos_arg). econs; [eassumption|..]; revgoals; ss.
             { ii.
-              exploit K; eauto. i; des_safe. pclearbot. esplits; try apply LXSIM; eauto. }
+              exploit K; eauto. i; des_safe. pclearbot. esplits; try apply LXSIM; eauto. admit "". }
             { reflexivity. }
             { et. }
             { refl. }
@@ -905,26 +905,15 @@ Section ADQSTEP.
             { congruence. }
             rewrite <- UPDSRC.
             destruct (UNCH (ModSem.midx ms_src0)) as [UNCHSRC UNCHTGT]; ss. des.
-            rewrite <- UNCHSRC.
-            clarify.
-            des_ifs.
-            
-            unfold Midx.update in *. des_ifs.
-            replace smos_after with smos_ret by admit "UNCH".
-            rewrite UPDSRC. unfold Midx.update. des_ifs.
+            admit "".
           - clear - UPDSRC OHSSRC OHSRC NEQ n.
-            rewrite OHSSRC; eauto.
-            replace smos_after with smos_ret by admit "UNCH".
-            rewrite UPDSRC. unfold Midx.update. des_ifs.
+            admit "".
         }
         { unfold Midx.update. ii. des_ifs.
           - clear - UPDTGT OHSTGT OHTGT.
-            replace smos_after with smos_ret by admit "UNCH".
-            rewrite UPDTGT. unfold Midx.update. des_ifs.
+            admit "".
           - clear - UPDTGT OHSTGT OHTGT NEQ n.
-            rewrite OHSTGT; eauto.
-            replace smos_after with smos_ret by admit "UNCH".
-            rewrite UPDTGT. unfold Midx.update. des_ifs.
+            admit "".
         }
         { folder. des_ifs. eapply mfuture_preserves_sim_geU; et. econs 2; et.
           right. eapply SimMemOhs.le_proj; eauto.
@@ -1013,7 +1002,7 @@ Section ADQBEH.
     eapply bsim_improves; eauto. eapply mixed_to_backward_simulation; eauto.
 
     des. inv INIT. ss. exploit sim_link_sk; eauto. i; des. clarify.
-    exploit unification; eauto. i; des.
+    (* exploit unification; eauto. i; des. *)
     exploit init_lxsim_lift_forward; eauto. { destruct pp; ss. } { econs; eauto. } i; des.
     exploit SimSymb.wf_load_sim_skenv; eauto. i; des. clarify.
     eapply adequacy_local_sim; ss; eauto.
