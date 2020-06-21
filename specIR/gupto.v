@@ -61,7 +61,6 @@ Hint Unfold eqit : core.
 
 
 
-
 Section eqit_closure.
 
 Inductive eqitC (r: stream -> stream -> Prop)
@@ -143,9 +142,6 @@ Hint Resolve eqitC_dist : paco.
 
 
 
-
-
-
 Global Instance Reflexive_eqit : Reflexive (eqit).
 Proof.
   red. ginit. gcofix CIH.
@@ -155,14 +151,6 @@ Proof.
   - gstep. econs; eauto. unfold id. gbase. eauto.
 Qed.
 
-
-(* CoFixpoint concat (s0 s1: stream): stream := *)
-(*   match s0 with *)
-(*   | snil => s1 *)
-(*   | scons n s0 => scons n (concat s0 s1) *)
-(*   | stau s0 => stau (concat s0 s1) *)
-(*   end *)
-(* . *)
 Definition match_concat concat (s0 s1: stream): stream :=
   match s0 with
   | snil => s1
@@ -178,8 +166,6 @@ Notation "[ ]" := snil (format "[ ]") : stream_scope.
 Notation "[ x ]" := (scons x snil) : stream_scope.
 Notation "[ x ; y ; .. ; z ]" := (scons x (scons y .. (scons z snil) ..)) : stream_scope.
 Open Scope stream_scope.
-(* Require Import List. *)
-(* Import ListNotations. *)
 
 Lemma unfold_concat: forall s0 s1, s0 ++ s1 = match_concat concat s0 s1.
 Proof.
@@ -196,54 +182,6 @@ Lemma scons_concat
 Proof.
   rewrite unfold_concat; cbn. rewrite unfold_concat; cbn. reflexivity.
 Qed.
-
-(* Lemma concat_assoc *)
-(*       s0 s1 s2 *)
-(*   : *)
-(*     (s0 ++ s1) ++ s2 = s0 ++ s1 ++ s2 *)
-(* . *)
-(* Proof. *)
-(*   admit. *)
-(* Admitted. *)
-
-
-
-
-
-
-(* Lemma concat_nil_r *)
-(*       s *)
-(*   : *)
-(*     s ++ [] = s *)
-(* . *)
-(* Proof. *)
-(*   admit. (* use bisim is eq && bisim with pcofix *) *)
-(* Admitted. *)
-
-(* CoFixpoint s0: stream := scons 0 s0' *)
-(* with s0' := stau s1 *)
-(* with s1 := scons 1 s1' *)
-(* with s1' := scons 2 s0' *)
-(* . *)
-
-(* CoFixpoint t0: stream := scons 0 t0' *)
-(* with t0' := scons 1 t1' *)
-(* with t1' := scons 2 t0' *)
-(* . *)
-(* Definition t1 := t0'. *)
-
-(* Inductive X0: forall (sl sr: stream), Prop := *)
-(* | X0_s0_t0: X0 s0 t0 *)
-(* | X0_s1_t1: X0 s1 t1 *)
-(* . *)
-(* Hint Constructors X0. *)
-
-(* Inductive X1: forall (sl sr: stream), Prop := *)
-(* | X1_s0'_t0': X1 s0' t0' *)
-(* | X1_s1'_t1': X1 s1' t1' *)
-(* . *)
-(* Hint Constructors X1. *)
-
 
 Inductive concatC (R : stream -> stream -> Prop): stream -> stream -> Prop :=
 | concatC_intro
