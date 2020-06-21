@@ -116,16 +116,16 @@ Section eqit.
       pattern-matching is not allowed on [itree].
    *)
 
-  Inductive eqit0_ (sim : itree E R1 -> itree E R2 -> Prop) : itree E R1 -> itree E R2 -> Prop :=
+  Inductive eqit0_ vclo (sim : itree E R1 -> itree E R2 -> Prop) : itree E R1 -> itree E R2 -> Prop :=
   | EqRet r1 r2
        (REL: RR r1 r2):
-     eqit0_ sim (Ret r1) (Ret r2)
+     eqit0_ vclo sim (Ret r1) (Ret r2)
   | EqTau m1 m2
         (REL: sim m1 m2):
-      eqit0_ sim (Tau m1) (Tau m2)
+      eqit0_ vclo sim (Tau m1) (Tau m2)
   | EqVis {u} (e : E u) k1 k2
-        (REL: forall v, sim (k1 v) (k2 v) : Prop):
-      eqit0_ sim (Vis e k1) (Vis e k2)
+        (REL: forall v, vclo sim (k1 v) (k2 v) : Prop):
+      eqit0_ vclo sim (Vis e k1) (Vis e k2)
   .
   Hint Constructors eqit0_: core.
 
@@ -165,19 +165,24 @@ Section eqit.
   (*     + econs; et. *)
   (* Qed. *)
 
-  Lemma eqit0__mono : monotone2 (eqit0_).
+  Lemma eqit0__mono vclo (MON: monotone2 vclo): monotone2 (eqit0_ vclo).
   Proof. ii. inv IN; econs; et. Qed.
+  Hint Resolve eqit0__mono : paco.
 
-  Hint Resolve eqit__mono : paco.
+  Lemma eqit0_idclo_mono: monotone2 (@id (itree E R1 -> itree E R2 -> Prop)).
+  Proof. unfold id. eauto. Qed.
+  Hint Resolve eqit0_idclo_mono : paco.
 
   Definition eqit0 : itree E R1 -> itree E R2 -> Prop :=
-    paco2 (eqit0_) bot2.
+    paco2 (eqit0_ id) bot2.
 
 End eqit.
 
 Hint Unfold eqit0: core.
 Hint Resolve eqit0__mono : paco.
+Hint Resolve eqit0_idclo_mono : paco.
 Hint Unfold eqit0: core.
+Hint Unfold id: core.
 
 
 
@@ -203,19 +208,19 @@ Section eqit_gen.
 Context {E : Type -> Type} {R: Type} (RR : R -> R -> Prop).
 
 Global Instance Reflexive_eqit_ (sim : itree E R -> itree E R -> Prop)
-: Reflexive RR -> Reflexive sim -> Reflexive (eqit0_ RR sim).
+: Reflexive RR -> Reflexive sim -> Reflexive (eqit0_ RR id sim).
 Proof.
   repeat red. intros.
   ides x; econs; et.
 Qed.
 
 Global Instance Symmetric_eqit_ (sim : itree E R -> itree E R -> Prop)
-: Symmetric RR -> Symmetric sim -> Symmetric (eqit0_ RR sim).
+: Symmetric RR -> Symmetric sim -> Symmetric (eqit0_ RR id sim).
 Proof.
   ii. inv H1.
   - econs; et.
   - econs; et.
-  - econs; et.
+  - econs; et. u in *. et.
 Qed.
 
 Global Instance Reflexive_eqit : Reflexive RR -> Reflexive (@eqit0 E _ _ RR).
@@ -268,15 +273,76 @@ Proof.
 Abort.
 
 
-Inductive eqit0_bind_clo (r : itree E R -> itree E R -> Prop) :
+Inductive eqit0C (r : itree E R -> itree E R -> Prop) :
   itree E R -> itree E R -> Prop :=
 | pbc_intro_h U1 U2 (RU : U1 -> U2 -> Prop) t1 t2 k1 k2
               (EQV: eqit0 RU t1 t2)
               (REL: forall u1 u2, RU u1 u2 -> r (k1 u1) (k2 u2))
-  : eqit0_bind_clo r (ITree.bind t1 k1) (ITree.bind t2 k2)
+  : eqit0C r (ITree.bind t1 k1) (ITree.bind t2 k2)
 .
 
-Lemma eqit_clo_bind: wcompatible2 (eqit0_ eq) eqit0_bind_clo.
+Lemma eqit0C_mon r1 r2 t1 t2
+      (IN: eqit0C r1 t1 t2)
+      (LE: r1 <2= r2):
+  eqit0C r2 t1 t2.
+Proof.
+  destruct IN. econstructor; eauto.
+Qed.
+
+Hint Resolve eqit0C_mon : paco.
+
+Lemma eqit0_bind_clo_wcompat vclo
+      (MON: monotone2 vclo)
+      (CMP: compose (eqit0C) vclo <3= compose vclo (eqit0C)):
+  wcompatible2 (@eqit0_ E R R RR vclo) (eqit0C).
+Proof.
+  econstructor.
+  { pmonauto. ii. eapply eqit0C_mon; et. }
+  intros. dependent destruction PR.
+  punfold EQV.
+  {
+    inv EQV; ii.
+    - setoid_rewrite bind_ret_l.
+  }
+  hinduction REL before r; intros; clear t1' t2'.
+  - remember (RetF r1) as x.
+    hinduction EQVl before r; intros; subst; try inv Heqx; eauto.
+    remember (RetF r3) as y.
+    hinduction EQVr before r; intros; subst; try inv Heqy; eauto.
+  - remember (TauF m1) as x.
+    hinduction EQVl before r; intros; subst; try inv Heqx; try inv CHECK; eauto.
+    remember (TauF m3) as y.
+    hinduction EQVr before r; intros; subst; try inv Heqy; try inv CHECK; eauto.
+    pclearbot. econstructor. gclo.
+    econstructor; cycle -1; eauto with paco.
+  - remember (VisF e k1) as x.
+    hinduction EQVl before r; intros; subst; try dependent destruction Heqx; try inv CHECK; eauto.
+    remember (VisF e0 k3) as y.
+    hinduction EQVr before r; intros; subst; try dependent destruction Heqy; try inv CHECK; eauto.
+    econstructor. intros. pclearbot.
+    eapply MON.
+    + apply CMP. econstructor; eauto.
+    + intros. apply gpaco2_clo, PR.
+  - remember (TauF t1) as x.
+    hinduction EQVl before r; intros; subst; try inv Heqx; try inv CHECK; eauto.
+    pclearbot. punfold REL.
+  - remember (TauF t2) as y.
+    hinduction EQVr before r; intros; subst; try inv Heqy; try inv CHECK; eauto.
+    pclearbot. punfold REL.
+
+  econs; et.
+  { ii. inv IN. econs; et. }
+  ii.
+Qed.
+
+Lemma eqit0_clo_bind b1 b2 vclo
+      (MON: monotone2 vclo)
+      (CMP: compose (eqitC RR b1 b2) vclo <3= compose vclo (eqitC RR b1 b2))
+      (ID: id <3= vclo):
+  eqit0_bind_clo <3= gupaco2 (eqit_ RR b1 b2 vclo) (eqitC RR b1 b2).
+Proof.
+
+Lemma eqit0_clo_bind: wcompatible2 (eqit0_ eq) eqit0_bind_clo.
 Proof.
   econstructor.
   { ii. inv IN. econs; et. }
