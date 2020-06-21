@@ -63,22 +63,15 @@ Hint Unfold eqit : core.
 
 Section eqit_closure.
 
-Inductive eqitC (r: stream -> stream -> Prop)
-  : stream -> stream -> Prop :=
-| eqit_trans_clo t1 t2 t1' t2'
-      (EQVl: eqit t1 t1')
-      (EQVr: eqit t2 t2')
-      (REL: r t1' t2')
-  : eqitC r t1 t2
-.
-Hint Constructors eqitC: core.
+Definition eqitC (r: stream -> stream -> Prop): stream -> stream -> Prop := r.
+Hint Unfold eqitC: core.
 
 Lemma eqitC_mon r1 r2 t1 t2
       (IN: eqitC r1 t1 t2)
       (LE: r1 <2= r2):
   eqitC r2 t1 t2.
 Proof.
-  destruct IN. econstructor; eauto.
+  eauto.
 Qed.
 Hint Resolve eqitC_mon : paco.
 
@@ -91,21 +84,14 @@ Lemma eqitC_wcompat
 .
 Proof.
   econstructor.
-  { pmonauto. }
-  intros. dependent destruction PR.
-  punfold EQVl. punfold EQVr.
-  {
-    inv REL.
-    - inv EQVl. inv EQVr. econs; eauto.
-    - inv EQVl. inv EQVr. econs; eauto.
-      unfold id in *. pclearbot.
-      eapply MON.
-      { apply CMP. econs; eauto. }
-      { intros. gclo. eapply eqitC_mon; eauto. intros. gbase. eauto. }
-    - inv EQVl. inv EQVr. pclearbot.
-      econs; eauto. gclo. econs; eauto.
-      gbase. eauto.
-  }
+  { unfold eqitC. ii. eauto. }
+  intros. unfold eqitC in *. inv PR.
+  - econs; eauto.
+  - econs; eauto.
+    eapply MON.
+    { eauto. }
+    { intros. gclo. eapply eqitC_mon; eauto. intros. gbase. eauto. }
+  - econs; eauto. gclo. gbase. eauto.
 Qed.
 Hint Resolve eqitC_wcompat : paco.
 
@@ -118,7 +104,7 @@ Hint Resolve eqit_idclo_compat : paco.
 Lemma eqitC_dist :
   forall r1 r2, eqitC (r1 \2/ r2) <2= (eqitC r1 \2/ eqitC r2).
 Proof.
-  intros. destruct PR. destruct REL; eauto.
+  intros. eauto.
 Qed.
 Hint Resolve eqitC_dist : paco.
 
@@ -127,12 +113,12 @@ Lemma eqit_clo_trans vclo
       (CMP: compose (eqitC) vclo <3= compose vclo (eqitC)):
   eqitC <3= gupaco2 (eqitF vclo) (eqitC).
 Proof.
-  intros. destruct PR. gclo. econstructor; eauto with paco.
+  intros. unfold eqitC in *. gclo. econstructor; eauto with paco.
 Qed.
 
 End eqit_closure.
 
-Hint Constructors eqitC: core.
+Hint Unfold eqitC: core.
 Hint Resolve eqitC_mon : paco.
 Hint Resolve eqitC_wcompat : paco.
 Hint Resolve eqit_idclo_compat : paco.
@@ -193,7 +179,7 @@ Inductive concatC (R : stream -> stream -> Prop): stream -> stream -> Prop :=
 .
 Hint Constructors concatC.
 
-Lemma concatC_spec vclo
+Lemma concatC_spec eqitC (*** <-- for any eqitC this holds? ***) vclo
       (MON: monotone2 vclo)
       (CMP: compose (eqitC) vclo <3= compose vclo (eqitC))
       (ID: id <3= vclo)
@@ -202,8 +188,6 @@ Lemma concatC_spec vclo
 .
 Proof.
   gcofix CIH. intros. destruct PR.
-  guclo eqit_clo_trans.
-  econs; eauto; try reflexivity.
   punfold REL. inv REL.
   - rewrite ! unfold_concat. cbn. gbase. eauto.
   - gstep.
