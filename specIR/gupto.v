@@ -39,25 +39,21 @@ Proof.
 Qed.
 
 
-Inductive simF vclo (_simF : stream -> stream -> Prop): stream -> stream -> Prop :=
-| SimRet: simF vclo _simF snil snil
-| SimVis n sl sr (REL: vclo _simF sl sr): simF vclo _simF (scons n sl) (scons n sr)
-| SimTau sl sr (REL: _simF sl sr): simF vclo _simF (stau sl) (stau sr)
-| SimStuck sr: simF vclo _simF sstuck sr 
+Inductive simF (_simF : stream -> stream -> Prop): stream -> stream -> Prop :=
+| SimRet: simF _simF snil snil
+| SimVis n sl sr (REL: _simF sl sr): simF _simF (scons n sl) (scons n sr)
+| SimTau sl sr (REL: _simF sl sr): simF _simF (stau sl) (stau sr)
+| SimStuck sr: simF _simF sstuck sr 
 .
 Hint Constructors simF : core.
 
-Lemma simF_mon vclo (MON: monotone2 vclo) : monotone2 (simF vclo).
+Lemma simF_mon : monotone2 (simF).
 Proof.
-  intros x0 x1 r r' IN LE. induction IN; auto. econstructor; eauto.
+  intros x0 x1 r r' IN LE. induction IN; auto.
 Qed.
 Hint Resolve simF_mon : paco.
 
-Lemma sim_idclo_mono: monotone2 (@id (stream -> stream -> Prop)).
-Proof. unfold id. eauto. Qed.
-Hint Resolve sim_idclo_mono : paco.
-
-Definition sim (sl sr: stream) := paco2 (simF id) bot2 sl sr.
+Definition sim (sl sr: stream) := paco2 (simF) bot2 sl sr.
 Hint Unfold sim : core.
 
 
@@ -69,7 +65,7 @@ Proof.
   red. pcofix CIH. pfold.
   destruct x.
   - econs; eauto.
-  - econs; eauto. unfold id. right. eauto.
+  - econs; eauto.
   - econs; eauto.
   - econs; eauto.
 Qed.
@@ -143,7 +139,7 @@ Hint Constructors concatC.
 Lemma concatC_spec
       simC
   :
-    concatC <3= gupaco2 (simF id) (simC)
+    concatC <3= gupaco2 (simF) (simC)
 .
 Proof.
   gcofix CIH. intros. destruct PR.
