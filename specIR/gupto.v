@@ -1,6 +1,19 @@
 Require Import Paco.paco.
+Require Import Program.
+Require Import RelationClasses.
+Require Import Morphisms.
 
 Set Implicit Arguments.
+
+Ltac inv H := inversion H; subst; clear H.
+Ltac econs := econstructor.
+Ltac ii := repeat intro.
+Ltac i := intros.
+Lemma hexploit_mp: forall P Q: Type, P -> (P -> Q) -> Q.
+Proof. intuition. Defined.
+Ltac hexploit x := eapply hexploit_mp; [eapply x|].
+
+
 
 
 CoInductive stream :=
@@ -24,25 +37,123 @@ Proof.
 Qed.
 
 
-Inductive euttF vclo (_euttF : stream -> stream -> Prop): stream -> stream -> Prop :=
-| EqRet: euttF vclo _euttF snil snil
-| EqVis n sl sr (REL: vclo _euttF sl sr): euttF vclo _euttF (scons n sl) (scons n sr)
-| EqTau sl sr (REL: _euttF sl sr): euttF vclo _euttF (stau sl) (stau sr)
+Inductive eqitF vclo (_eqitF : stream -> stream -> Prop): stream -> stream -> Prop :=
+| EqRet: eqitF vclo _eqitF snil snil
+| EqVis n sl sr (REL: vclo _eqitF sl sr): eqitF vclo _eqitF (scons n sl) (scons n sr)
+| EqTau sl sr (REL: _eqitF sl sr): eqitF vclo _eqitF (stau sl) (stau sr)
 .
-Hint Constructors euttF : core.
+Hint Constructors eqitF : core.
 
-Lemma euttF_mon vclo (MON: monotone2 vclo) : monotone2 (euttF vclo).
+Lemma eqitF_mon vclo (MON: monotone2 vclo) : monotone2 (eqitF vclo).
 Proof.
   intros x0 x1 r r' IN LE. induction IN; auto. econstructor; eauto.
 Qed.
-Hint Resolve euttF_mon : paco.
+Hint Resolve eqitF_mon : paco.
 
-Lemma eutt_idclo_mono: monotone2 (@id (stream -> stream -> Prop)).
+Lemma eqit_idclo_mono: monotone2 (@id (stream -> stream -> Prop)).
 Proof. unfold id. eauto. Qed.
+Hint Resolve eqit_idclo_mono : paco.
 
-Definition eutt (sl sr: stream) := paco2 (euttF id) bot2 sl sr.
-Hint Unfold eutt : core.
+Definition eqit (sl sr: stream) := paco2 (eqitF id) bot2 sl sr.
+Hint Unfold eqit : core.
 
+
+
+
+
+
+Section eqit_closure.
+
+Inductive eqitC (r: stream -> stream -> Prop)
+  : stream -> stream -> Prop :=
+| eqit_trans_clo t1 t2 t1' t2'
+      (EQVl: eqit t1 t1')
+      (EQVr: eqit t2 t2')
+      (REL: r t1' t2')
+  : eqitC r t1 t2
+.
+Hint Constructors eqitC: core.
+
+Lemma eqitC_mon r1 r2 t1 t2
+      (IN: eqitC r1 t1 t2)
+      (LE: r1 <2= r2):
+  eqitC r2 t1 t2.
+Proof.
+  destruct IN. econstructor; eauto.
+Qed.
+Hint Resolve eqitC_mon : paco.
+
+Lemma eqitC_wcompat
+      vclo
+      (MON: monotone2 vclo)
+      (CMP: compose (eqitC) vclo <3= compose vclo (eqitC))
+  :
+    wcompatible2 (@eqitF vclo) (eqitC)
+.
+Proof.
+  econstructor.
+  { pmonauto. }
+  intros. dependent destruction PR.
+  punfold EQVl. punfold EQVr.
+  {
+    inv REL.
+    - inv EQVl. inv EQVr. econs; eauto.
+    - inv EQVl. inv EQVr. econs; eauto.
+      unfold id in *. pclearbot.
+      eapply MON.
+      { apply CMP. econs; eauto. }
+      { intros. gclo. eapply eqitC_mon; eauto. intros. gbase. eauto. }
+    - inv EQVl. inv EQVr. pclearbot.
+      econs; eauto. gclo. econs; eauto.
+      gbase. eauto.
+  }
+Qed.
+Hint Resolve eqitC_wcompat : paco.
+
+Lemma eqit_idclo_compat : compose (eqitC) id <3= compose id (eqitC).
+Proof.
+  intros. apply PR.
+Qed.
+Hint Resolve eqit_idclo_compat : paco.
+
+Lemma eqitC_dist :
+  forall r1 r2, eqitC (r1 \2/ r2) <2= (eqitC r1 \2/ eqitC r2).
+Proof.
+  intros. destruct PR. destruct REL; eauto.
+Qed.
+Hint Resolve eqitC_dist : paco.
+
+Lemma eqit_clo_trans vclo
+      (MON: monotone2 vclo)
+      (CMP: compose (eqitC) vclo <3= compose vclo (eqitC)):
+  eqitC <3= gupaco2 (eqitF vclo) (eqitC).
+Proof.
+  intros. destruct PR. gclo. econstructor; eauto with paco.
+Qed.
+
+End eqit_closure.
+
+Hint Constructors eqitC: core.
+Hint Resolve eqitC_mon : paco.
+Hint Resolve eqitC_wcompat : paco.
+Hint Resolve eqit_idclo_compat : paco.
+Hint Resolve eqitC_dist : paco.
+
+
+
+
+
+
+
+
+Global Instance Reflexive_eqit : Reflexive (eqit).
+Proof.
+  red. ginit. gcofix CIH.
+  destruct x.
+  - gstep. econs; eauto.
+  - gstep. econs; eauto. unfold id. gbase. eauto.
+  - gstep. econs; eauto. unfold id. gbase. eauto.
+Qed.
 
 
 (* CoFixpoint concat (s0 s1: stream): stream := *)
@@ -86,14 +197,28 @@ Proof.
   rewrite unfold_concat; cbn. rewrite unfold_concat; cbn. reflexivity.
 Qed.
 
-Lemma concat_nil_r
-      s
-  :
-    s ++ [] = s
-.
-Proof.
-  admit. (* use bisim is eq && bisim with pcofix *)
-Admitted.
+(* Lemma concat_assoc *)
+(*       s0 s1 s2 *)
+(*   : *)
+(*     (s0 ++ s1) ++ s2 = s0 ++ s1 ++ s2 *)
+(* . *)
+(* Proof. *)
+(*   admit. *)
+(* Admitted. *)
+
+
+
+
+
+
+(* Lemma concat_nil_r *)
+(*       s *)
+(*   : *)
+(*     s ++ [] = s *)
+(* . *)
+(* Proof. *)
+(*   admit. (* use bisim is eq && bisim with pcofix *) *)
+(* Admitted. *)
 
 (* CoFixpoint s0: stream := scons 0 s0' *)
 (* with s0' := stau s1 *)
@@ -123,79 +248,49 @@ Admitted.
 Inductive concatC (R : stream -> stream -> Prop): stream -> stream -> Prop :=
 | concatC_intro
     s0 s1 t0 t1
-    (REL: R s0 t0)
+    (REL: eqit s0 t0)
     (REL: R s1 t1)
   :
     concatC R (concat s0 s1) (concat t0 t1)
 .
 Hint Constructors concatC.
 
-Ltac inv H := inversion H; subst; clear H.
-
-Lemma concatC_wcompat
-      vclo
+Lemma concatC_spec vclo
       (MON: monotone2 vclo)
-      (CMP: compose concatC vclo <3= compose vclo concatC)
+      (CMP: compose (eqitC) vclo <3= compose vclo (eqitC))
+      (ID: id <3= vclo)
   :
-    wcompatible2 (euttF vclo) concatC.
+    concatC <3= gupaco2 (eqitF vclo) (eqitC)
+.
 Proof.
-  constructor.
-  - pmonauto.
-  - intros. inv PR.
-    (* rewrite id_stream_eq with s0. *)
-    (* rewrite id_stream_eq with t0. *)
-    rewrite ! unfold_concat.
-    inv REL; inv REL0; cbn; (econstructor; eauto).
-    + eapply MON; eauto. intros. gbase. eauto.
-    + gbase. eauto.
-    + eapply MON.
-      { rewrite ! concat_nil_r. eauto. }
-      intros. gbase. eauto.
-    + eapply MON.
-      { eapply CMP. unfold compose. econstructor; eauto.
-        eapply MON.
-        { rewrite (@scons_concat n0 sl0).
-          rewrite (@scons_concat n0 sr0).
-          eapply CMP. econstructor; eauto.
-          admit.
-        }
-        intros.
-        admit.
-      }
-      intros.
-        +
-          simpl
-        instantiate (1:=r). admit. }
-      intros. gbase. eauto.
-    +
-    + gbase; eauto.
-    destruct s0 eqn:S; destruct t0 eqn:T; cbn.
-    { rewrite ! unfold_concat. cbn. 
-    cbn.
-    eapply euttF_mon; eauto. intros. gbase. auto.
+  gcofix CIH. intros. destruct PR.
+  guclo eqit_clo_trans.
+  econs; eauto; try reflexivity.
+  punfold REL. inv REL.
+  - rewrite ! unfold_concat. cbn. gbase. eauto.
+  - gstep.
+    rewrite ! unfold_concat. cbn.
+    econs; eauto.
+    unfold id in *. pclearbot. eauto with paco.
+  - gstep.
+    rewrite ! unfold_concat. cbn.
+    econs; eauto.
+    unfold id in *. pclearbot. eauto with paco.
 Qed.
 
-Lemma X0_eutt
+Lemma eqit_concat
+      s0 s1 t0 t1
+      (EQ0: eqit s0 t0)
+      (EQ1: eqit s1 t1)
   :
-    X0 <2= eutt.
+    @eqit (concat s0 s1) (concat t0 t1)
+.
 Proof.
-  ginit. (* Init *)
-  { intros. eapply TauL_wcompat. } (* weakly compatible *)
-  gcofix CIH0. (* Acc *)
-  gstep. (* Step *)
-  cut (X1 <2= gpaco2 euttF TauL r r).
-  { intros. rewrite (@id_stream_eq x2). rewrite (@id_stream_eq x3).
-    inversion PR; subst; simpl; apply EqVis; apply H; auto. } (* Lemma 2.6 *)
-  gcofix CIH1. (* Acc *)
-  intros sl sr REL. inversion REL; subst.
-  - (* lhs *)
-    gclo. (* Closure* *)
-    rewrite (@id_stream_eq s0'). rewrite (@id_stream_eq t0').
-    simpl. constructor. (* Lemma 3.7 *)
-    gbase. (* Base *)
-    apply CIH0. replace (scons 1 t1') with t1; auto. rewrite (@id_stream_eq t1); auto.
-  - gstep. (* Step *)
-    rewrite (@id_stream_eq s1'). rewrite (@id_stream_eq t1'). simpl. apply EqVis. (* EqVis *)
-    gbase. (* Base *)
-    auto.
+  intros. ginit. guclo concatC_spec.
 Qed.
+
+Lemma eqit_concat_proper: Proper (eqit ==> eqit ==> eqit) concat.
+Proof.
+  ii. eapply eqit_concat; eauto.
+Qed.
+
