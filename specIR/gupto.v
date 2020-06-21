@@ -20,6 +20,7 @@ CoInductive stream :=
 | snil
 | scons (n: nat) (s: stream)
 | stau (s: stream)
+| sstuck
 .
 
 Definition match_stream (s: stream) :=
@@ -27,6 +28,7 @@ Definition match_stream (s: stream) :=
   | snil => snil
   | scons n s => scons n s
   | stau s => stau s
+  | sstuck => sstuck
   end.
 
 Lemma unfold_stream s
@@ -37,104 +39,39 @@ Proof.
 Qed.
 
 
-Inductive eqitF vclo (_eqitF : stream -> stream -> Prop): stream -> stream -> Prop :=
-| EqRet: eqitF vclo _eqitF snil snil
-| EqVis n sl sr (REL: vclo _eqitF sl sr): eqitF vclo _eqitF (scons n sl) (scons n sr)
-| EqTau sl sr (REL: _eqitF sl sr): eqitF vclo _eqitF (stau sl) (stau sr)
+Inductive simF vclo (_simF : stream -> stream -> Prop): stream -> stream -> Prop :=
+| SimRet: simF vclo _simF snil snil
+| SimVis n sl sr (REL: vclo _simF sl sr): simF vclo _simF (scons n sl) (scons n sr)
+| SimTau sl sr (REL: _simF sl sr): simF vclo _simF (stau sl) (stau sr)
+| SimStuck sr: simF vclo _simF sstuck sr 
 .
-Hint Constructors eqitF : core.
+Hint Constructors simF : core.
 
-Lemma eqitF_mon vclo (MON: monotone2 vclo) : monotone2 (eqitF vclo).
+Lemma simF_mon vclo (MON: monotone2 vclo) : monotone2 (simF vclo).
 Proof.
   intros x0 x1 r r' IN LE. induction IN; auto. econstructor; eauto.
 Qed.
-Hint Resolve eqitF_mon : paco.
+Hint Resolve simF_mon : paco.
 
-Lemma eqit_idclo_mono: monotone2 (@id (stream -> stream -> Prop)).
+Lemma sim_idclo_mono: monotone2 (@id (stream -> stream -> Prop)).
 Proof. unfold id. eauto. Qed.
-Hint Resolve eqit_idclo_mono : paco.
+Hint Resolve sim_idclo_mono : paco.
 
-Definition eqit (sl sr: stream) := paco2 (eqitF id) bot2 sl sr.
-Hint Unfold eqit : core.
-
-
+Definition sim (sl sr: stream) := paco2 (simF id) bot2 sl sr.
+Hint Unfold sim : core.
 
 
 
-Section eqit_closure.
 
-Definition eqitC (r: stream -> stream -> Prop): stream -> stream -> Prop := r.
-Hint Unfold eqitC: core.
 
-Lemma eqitC_mon r1 r2 t1 t2
-      (IN: eqitC r1 t1 t2)
-      (LE: r1 <2= r2):
-  eqitC r2 t1 t2.
+Global Instance Reflexive_sim : Reflexive (sim).
 Proof.
-  eauto.
-Qed.
-Hint Resolve eqitC_mon : paco.
-
-Lemma eqitC_wcompat
-      vclo
-      (MON: monotone2 vclo)
-      (CMP: compose (eqitC) vclo <3= compose vclo (eqitC))
-  :
-    wcompatible2 (@eqitF vclo) (eqitC)
-.
-Proof.
-  econstructor.
-  { unfold eqitC. ii. eauto. }
-  intros. unfold eqitC in *. inv PR.
-  - econs; eauto.
-  - econs; eauto.
-    eapply MON.
-    { eauto. }
-    { intros. gclo. eapply eqitC_mon; eauto. intros. gbase. eauto. }
-  - econs; eauto. gclo. gbase. eauto.
-Qed.
-Hint Resolve eqitC_wcompat : paco.
-
-Lemma eqit_idclo_compat : compose (eqitC) id <3= compose id (eqitC).
-Proof.
-  intros. apply PR.
-Qed.
-Hint Resolve eqit_idclo_compat : paco.
-
-Lemma eqitC_dist :
-  forall r1 r2, eqitC (r1 \2/ r2) <2= (eqitC r1 \2/ eqitC r2).
-Proof.
-  intros. eauto.
-Qed.
-Hint Resolve eqitC_dist : paco.
-
-Lemma eqit_clo_trans vclo
-      (MON: monotone2 vclo)
-      (CMP: compose (eqitC) vclo <3= compose vclo (eqitC)):
-  eqitC <3= gupaco2 (eqitF vclo) (eqitC).
-Proof.
-  intros. unfold eqitC in *. gclo. econstructor; eauto with paco.
-Qed.
-
-End eqit_closure.
-
-Hint Unfold eqitC: core.
-Hint Resolve eqitC_mon : paco.
-Hint Resolve eqitC_wcompat : paco.
-Hint Resolve eqit_idclo_compat : paco.
-Hint Resolve eqitC_dist : paco.
-
-
-
-
-
-Global Instance Reflexive_eqit : Reflexive (eqit).
-Proof.
-  red. ginit. gcofix CIH.
+  red. pcofix CIH. pfold.
   destruct x.
-  - gstep. econs; eauto.
-  - gstep. econs; eauto. unfold id. gbase. eauto.
-  - gstep. econs; eauto. unfold id. gbase. eauto.
+  - econs; eauto.
+  - econs; eauto. unfold id. right. eauto.
+  - econs; eauto.
+  - econs; eauto.
 Qed.
 
 Definition match_concat concat (s0 s1: stream): stream :=
@@ -142,6 +79,7 @@ Definition match_concat concat (s0 s1: stream): stream :=
   | snil => s1
   | scons n s0 => scons n (concat s0 s1)
   | stau s0 => stau (concat s0 s1)
+  | sstuck => sstuck
   end
 .
 
@@ -172,19 +110,40 @@ Qed.
 Inductive concatC (R : stream -> stream -> Prop): stream -> stream -> Prop :=
 | concatC_intro
     s0 s1 t0 t1
-    (REL: eqit s0 t0)
+    (REL: sim s0 t0)
     (REL: R s1 t1)
   :
     concatC R (concat s0 s1) (concat t0 t1)
 .
 Hint Constructors concatC.
 
-Lemma concatC_spec eqitC (*** <-- for any eqitC this holds? ***) vclo
-      (MON: monotone2 vclo)
-      (CMP: compose (eqitC) vclo <3= compose vclo (eqitC))
-      (ID: id <3= vclo)
+(* Lemma concatC_spec simC (*** <-- for any simC this holds? ***) vclo *)
+(*       (MON: monotone2 vclo) *)
+(*       (* (CMP: compose (simC) vclo <3= compose vclo (simC)) *) *)
+(*       (ID: id <3= vclo) *)
+(*   : *)
+(*     concatC <3= gupaco2 (simF vclo) (simC) *)
+(* . *)
+(* Proof. *)
+(*   gcofix CIH. intros. destruct PR. *)
+(*   punfold REL. inv REL. *)
+(*   - rewrite ! unfold_concat. cbn. gbase. eauto. *)
+(*   - gstep. *)
+(*     rewrite ! unfold_concat. cbn. *)
+(*     econs; eauto. *)
+(*     unfold id in *. pclearbot. eauto with paco. *)
+(*   - gstep. *)
+(*     rewrite ! unfold_concat. cbn. *)
+(*     econs; eauto. *)
+(*     unfold id in *. pclearbot. eauto with paco. *)
+(*   - gstep. *)
+(*     rewrite ! unfold_concat. cbn. *)
+(*     econs; eauto. *)
+(* Qed. *)
+Lemma concatC_spec
+      simC
   :
-    concatC <3= gupaco2 (eqitF vclo) (eqitC)
+    concatC <3= gupaco2 (simF id) (simC)
 .
 Proof.
   gcofix CIH. intros. destruct PR.
@@ -198,21 +157,24 @@ Proof.
     rewrite ! unfold_concat. cbn.
     econs; eauto.
     unfold id in *. pclearbot. eauto with paco.
+  - gstep.
+    rewrite ! unfold_concat. cbn.
+    econs; eauto.
 Qed.
 
-Lemma eqit_concat
+Lemma sim_concat
       s0 s1 t0 t1
-      (EQ0: eqit s0 t0)
-      (EQ1: eqit s1 t1)
+      (EQ0: sim s0 t0)
+      (EQ1: sim s1 t1)
   :
-    @eqit (concat s0 s1) (concat t0 t1)
+    @sim (concat s0 s1) (concat t0 t1)
 .
 Proof.
-  intros. ginit. guclo concatC_spec.
+  intros. ginit. { eapply cpn2_wcompat; pmonauto. } guclo concatC_spec.
 Qed.
 
-Lemma eqit_concat_proper: Proper (eqit ==> eqit ==> eqit) concat.
+Lemma sim_concat_proper: Proper (sim ==> sim ==> sim) concat.
 Proof.
-  ii. eapply eqit_concat; eauto.
+  ii. eapply sim_concat; eauto.
 Qed.
 
