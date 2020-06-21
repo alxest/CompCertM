@@ -173,7 +173,6 @@ Section eqit.
   Definition eqit0 : itree E R1 -> itree E R2 -> Prop :=
     paco2 (eqit0_) bot2.
 
-
 End eqit.
 
 Hint Unfold eqit0: core.
@@ -266,8 +265,29 @@ Proof.
     punfold H0. inv H0; ss.
     - setoid_rewrite (bind_ret_l). (*** TODO: unnecessary setoid rewrite ***)
       exploit H1; et. intro T. rr in T.
+Abort.
 
-      TODO: study
+
+Inductive eqit0_bind_clo (r : itree E R -> itree E R -> Prop) :
+  itree E R -> itree E R -> Prop :=
+| pbc_intro_h U1 U2 (RU : U1 -> U2 -> Prop) t1 t2 k1 k2
+              (EQV: eqit0 RU t1 t2)
+              (REL: forall u1 u2, RU u1 u2 -> r (k1 u1) (k2 u2))
+  : eqit0_bind_clo r (ITree.bind t1 k1) (ITree.bind t2 k2)
+.
+
+Lemma eqit_clo_bind: wcompatible2 (eqit0_ eq) eqit0_bind_clo.
+Proof.
+  econstructor.
+  { ii. inv IN. econs; et. }
+  ii. depdes PR.
+  punfold EQV. inv EQV.
+  - setoid_rewrite bind_ret_l. exploit REL; et. intro T. eapply REL.
+    econs; et.
+Qed.
+
+
+TODO: study
 eqit_bind_clo
 eqit_clo_bind
   }
